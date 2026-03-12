@@ -1,1 +1,19 @@
-This
+# Database dumps
+*.sql
+*.dump
+
+# Environment variables
+.env
+.env.local
+.env*.local
+
+# Node modules
+node_modules/
+
+# Next.js build output
+.out/
+.next/
+
+# OS files
+.DS_Store
+Thumbs.db
