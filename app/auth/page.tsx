@@ -175,6 +175,7 @@ export default function AuthPage() {
                   fontSize: '1rem',
                   outline: 'none',
                   transition: 'border-color 0.15s ease',
+                  color: '#1f2937', // Added dark text color
                 }}
                 onFocus={(e) => e.target.style.borderColor = '#4f46e5'}
                 onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
@@ -211,6 +212,7 @@ export default function AuthPage() {
                 fontSize: '1rem',
                 outline: 'none',
                 transition: 'border-color 0.15s ease',
+                color: '#1f2937', // Added dark text color
               }}
               onFocus={(e) => e.target.style.borderColor = '#4f46e5'}
               onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
@@ -247,6 +249,7 @@ export default function AuthPage() {
                 fontSize: '1rem',
                 outline: 'none',
                 transition: 'border-color 0.15s ease',
+                color: '#1f2937', // Added dark text color
               }}
               onFocus={(e) => e.target.style.borderColor = '#4f46e5'}
               onBlur={(e) => e.target.style.borderColor = '#d1d5db'}
