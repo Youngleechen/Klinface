@@ -7,7 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 
 interface OrderFormProps {
   user: any;
-  initialData: {
+  initialData?: {
     name: string | null;
     phone: string | null;
     location: string | null;
@@ -39,49 +39,52 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
     setLoading(true);
     setMessage('');
 
-    // 1. Update profile with user details
-    const { error: updateError } = await supabase
+    // 1. Update profile with basic user details (optional, for reuse)
+    const { error: profileError } = await supabase
       .from('profiles')
       .update({
         name: formData.name,
         phone: formData.phone,
         location: formData.location,
-        bus_company: formData.busCompany,
       })
       .eq('id', user.id);
 
-    if (updateError) {
-      setMessage('Error saving your details. Please try again.');
-      setLoading(false);
-      return;
+    if (profileError) {
+      console.warn('Profile update warning:', profileError);
+      // Continue anyway - order is more important
     }
 
-    // 2. Simulate payment verification – in production you would validate the M‑PESA message
+    // 2. Validate M-PESA message
     if (!mpesaMessage.trim()) {
       setMessage('Please paste your M‑PESA confirmation message.');
       setLoading(false);
       return;
     }
 
-    // For demo, we simply check that the message contains the expected account number
     if (!mpesaMessage.includes('0100444592000') || !mpesaMessage.includes('1,500')) {
       setMessage('Invalid M‑PESA message. Please check the account number and amount.');
       setLoading(false);
       return;
     }
 
-    // 3. Mark order as paid and save the M‑PESA message
-    const { error: paidError } = await supabase
-      .from('profiles')
-      .update({
+    // 3. INSERT new order record (not update profiles!)
+    const { error: orderError } = await supabase
+      .from('orders')
+      .insert({
+        user_id: user.id,
+        name: formData.name,
+        phone: formData.phone,
+        location: formData.location,
+        bus_company: formData.busCompany,
         order_status: 'paid',
         mpesa_message: mpesaMessage,
         order_time: new Date().toISOString(),
-      })
-      .eq('id', user.id);
+        amount: 1500,
+        currency: 'KES',
+      });
 
-    if (paidError) {
-      setMessage('Payment confirmation failed. Please contact support.');
+    if (orderError) {
+      setMessage('Order submission failed. Please contact support.');
       setLoading(false);
       return;
     }

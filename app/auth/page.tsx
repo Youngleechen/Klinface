@@ -17,10 +17,10 @@ export default function AuthPage() {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Redirect if authenticated
+  // Redirect to order page if authenticated
   useEffect(() => {
     if (!loading && user) {
-      router.replace('/dashboard');
+      router.replace('/order');
     }
   }, [user, loading, router]);
 
@@ -32,7 +32,6 @@ export default function AuthPage() {
       if (savedEmail && savedEmail.includes('@')) {
         setEmail(savedEmail);
         setAuthMode('sign-in');
-        // Browser's password manager will handle password autofill
       }
     }
   }, [loading]);
@@ -40,7 +39,6 @@ export default function AuthPage() {
   const handleEmailChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setEmail(value);
-    // Only save email if it looks valid
     if (typeof window !== 'undefined' && value.includes('@')) {
       localStorage.setItem(EMAIL_STORAGE_KEY, value);
     } else if (value === '') {
@@ -56,11 +54,14 @@ export default function AuthPage() {
     try {
       if (authMode === 'sign-in') {
         await signIn(email, password);
+        // Redirect happens via useEffect above
       } else {
         if (!fullName.trim()) {
           throw new Error('Please enter your name.');
         }
         await signUp(email, password, fullName.trim());
+        // For sign-up, you might want to show a message or auto sign-in
+        // The redirect will happen once the user is authenticated
       }
     } catch (err: unknown) {
       if (err instanceof Error) {
@@ -87,10 +88,12 @@ export default function AuthPage() {
     );
   }
 
+  // Don't render anything if user is authenticated (will redirect)
   if (user) {
     return null;
   }
 
+  // Show the auth form for non-authenticated users
   return (
     <div style={{ 
       display: 'flex', 
@@ -120,8 +123,8 @@ export default function AuthPage() {
           </h1>
           <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>
             {authMode === 'sign-in' 
-              ? 'Sign in to access your dashboard' 
-              : 'Get started with your free account'}
+              ? 'Sign in to continue to checkout' 
+              : 'Create an account to place your order'}
           </p>
         </div>
 
@@ -288,7 +291,7 @@ export default function AuthPage() {
             type="button"
             onClick={() => {
               setAuthMode(authMode === 'sign-in' ? 'sign-up' : 'sign-in');
-              setError(''); // Clear any errors when switching modes
+              setError('');
             }}
             style={{
               background: 'none',
