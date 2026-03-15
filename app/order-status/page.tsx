@@ -7,6 +7,7 @@ import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 
 interface OrderDetails {
+  id: string;
   name: string | null;
   phone: string | null;
   location: string | null;
@@ -14,49 +15,60 @@ interface OrderDetails {
   order_status: string | null;
   order_time: string | null;
   mpesa_message: string | null;
+  amount: number | null;
+  currency: string | null;
 }
 
 export default function OrderStatusPage() {
   const { user, loading: authLoading } = useAuth();
-  const [orderDetails, setOrderDetails] = useState<OrderDetails | null>(null);
+  const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const router = useRouter();
+  
+  // Initialize supabase client
   const supabase = createClient();
 
   useEffect(() => {
-    // Redirect if not authenticated
+    // 1. Redirect if not authenticated
     if (!authLoading && !user) {
       router.replace('/auth');
       return;
     }
 
-    // Fetch order details if user is authenticated
-    const fetchOrderDetails = async () => {
+    // 2. Fetch order details from the NEW 'orders' table
+    const fetchOrder = async () => {
       if (!user?.id) return;
 
       try {
+        // 👇 CHANGE: We are now selecting from 'orders', NOT 'profiles'
         const { data, error: fetchError } = await supabase
-          .from('profiles')
+          .from('orders') 
           .select(`
+            id,
             name,
             phone,
             location,
             bus_company,
             order_status,
             order_time,
-            mpesa_message
+            mpesa_message,
+            amount,
+            currency
           `)
-          .eq('id', user.id)
+          .eq('user_id', user.id) // 👇 CHANGE: Filter by user_id column in orders table
+          .order('order_time', { ascending: false })
+          .limit(1)
           .single();
 
-        if (fetchError) {
+        // Handle "No rows returned" gracefully (PGRST116)
+        if (fetchError && fetchError.code !== 'PGRST116') {
           throw fetchError;
         }
 
-        setOrderDetails(data);
+        setOrder(data || null);
       } catch (err: unknown) {
-        console.error('Error fetching order details:', err);
+        console.error('Error fetching order:', err);
         setError('Unable to load your order details. Please try again.');
       } finally {
         setLoading(false);
@@ -64,35 +76,19 @@ export default function OrderStatusPage() {
     };
 
     if (user) {
-      fetchOrderDetails();
+      fetchOrder();
     }
   }, [user, authLoading, router, supabase]);
 
-  // Loading state
+  // --- Loading State ---
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center px-4">
         <div className="text-center">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-purple-100 mb-4">
-            <svg 
-              className="animate-spin h-8 w-8 text-purple-600" 
-              xmlns="http://www.w3.org/2000/svg" 
-              fill="none" 
-              viewBox="0 0 24 24"
-            >
-              <circle 
-                className="opacity-25" 
-                cx="12" 
-                cy="12" 
-                r="10" 
-                stroke="currentColor" 
-                strokeWidth="4"
-              />
-              <path 
-                className="opacity-75" 
-                fill="currentColor" 
-                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-              />
+            <svg className="animate-spin h-8 w-8 text-purple-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
           </div>
           <p className="text-gray-600 text-lg">Loading your order...</p>
@@ -101,7 +97,7 @@ export default function OrderStatusPage() {
     );
   }
 
-  // Error state
+  // --- Error State ---
   if (error) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center px-4">
@@ -124,8 +120,8 @@ export default function OrderStatusPage() {
     );
   }
 
-  // No order found
-  if (!orderDetails || !orderDetails.order_status) {
+  // --- No Order Found State ---
+  if (!order) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center">
@@ -147,7 +143,7 @@ export default function OrderStatusPage() {
     );
   }
 
-  // Format order time for display
+  // --- Helper to format date ---
   const formatOrderTime = (isoString: string | null) => {
     if (!isoString) return 'N/A';
     return new Date(isoString).toLocaleString('en-KE', {
@@ -160,6 +156,7 @@ export default function OrderStatusPage() {
     });
   };
 
+  // --- Success View ---
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-indigo-50 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-3xl mx-auto">
@@ -171,7 +168,7 @@ export default function OrderStatusPage() {
             </svg>
           </div>
           <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-            Thank You, {orderDetails.name?.split(' ')[0] || 'Friend'}! 🎉
+            Thank You, {order.name?.split(' ')[0] || 'Friend'}! 🎉
           </h1>
           <p className="text-lg text-gray-600 max-w-xl mx-auto">
             Your order has been confirmed and is being prepared for delivery.
@@ -186,12 +183,12 @@ export default function OrderStatusPage() {
               <div>
                 <p className="text-purple-100 text-sm font-medium">Order Status</p>
                 <p className="text-white text-lg font-bold capitalize">
-                  {orderDetails.order_status?.replace('_', ' ') || 'Processing'}
+                  {order.order_status?.replace('_', ' ') || 'Processing'}
                 </p>
               </div>
               <div className="text-right">
                 <p className="text-purple-100 text-sm font-medium">Order Placed</p>
-                <p className="text-white text-sm">{formatOrderTime(orderDetails.order_time)}</p>
+                <p className="text-white text-sm">{formatOrderTime(order.order_time)}</p>
               </div>
             </div>
           </div>
@@ -210,27 +207,27 @@ export default function OrderStatusPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-500 mb-1">Full Name</p>
-                  <p className="font-medium text-gray-900">{orderDetails.name || 'Not provided'}</p>
+                  <p className="font-medium text-gray-900">{order.name || 'Not provided'}</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-sm text-gray-500 mb-1">Phone Number</p>
-                  <p className="font-medium text-gray-900">{orderDetails.phone || 'Not provided'}</p>
+                  <p className="font-medium text-gray-900">{order.phone || 'Not provided'}</p>
                 </div>
                 <div className="bg-gray-50 rounded-lg p-4 md:col-span-2">
                   <p className="text-sm text-gray-500 mb-1">Delivery Location</p>
-                  <p className="font-medium text-gray-900">{orderDetails.location || 'Not provided'}</p>
+                  <p className="font-medium text-gray-900">{order.location || 'Not provided'}</p>
                 </div>
-                {orderDetails.bus_company && (
+                {order.bus_company && (
                   <div className="bg-gray-50 rounded-lg p-4 md:col-span-2">
                     <p className="text-sm text-gray-500 mb-1">Preferred Bus Company</p>
-                    <p className="font-medium text-gray-900">{orderDetails.bus_company}</p>
+                    <p className="font-medium text-gray-900">{order.bus_company}</p>
                   </div>
                 )}
               </div>
             </div>
 
             {/* Payment Confirmation */}
-            {orderDetails.mpesa_message && (
+            {order.mpesa_message && (
               <div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
                   <svg className="h-5 w-5 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -240,7 +237,7 @@ export default function OrderStatusPage() {
                 </h3>
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <p className="text-sm text-green-800">
-                    ✓ M‑PESA payment of <strong>KES 1,500</strong> received successfully.
+                    ✓ M‑PESA payment of <strong>{order.currency} {order.amount?.toLocaleString()}</strong> received successfully.
                   </p>
                 </div>
               </div>
@@ -257,12 +254,10 @@ export default function OrderStatusPage() {
               { step: 2, title: 'Dispatched', desc: 'Your order will be handed to the bus company.', active: false },
               { step: 3, title: 'In Transit', desc: 'Your package is on its way to your location.', active: false },
               { step: 4, title: 'Delivered', desc: 'You\'ll receive a call when it arrives!', active: false },
-            ].map((item, index) => (
+            ].map((item) => (
               <div key={item.step} className="flex items-start gap-4">
                 <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                  item.active 
-                    ? 'bg-purple-600 text-white' 
-                    : 'bg-gray-200 text-gray-600'
+                  item.active ? 'bg-purple-600 text-white' : 'bg-gray-200 text-gray-600'
                 }`}>
                   {item.step}
                 </div>
@@ -287,8 +282,7 @@ export default function OrderStatusPage() {
           </button>
           <button
             onClick={() => {
-              // Could open WhatsApp or contact form
-              window.open(`https://wa.me/254700000000?text=Hi, I have a question about my order`, '_blank');
+              window.open(`https://wa.me/254700000000?text=Hi, I have a question about my order #${order.id?.slice(0,8)}`, '_blank');
             }}
             className="px-8 py-3 bg-white text-purple-600 border-2 border-purple-200 rounded-xl font-medium hover:bg-purple-50 transition-colors"
           >

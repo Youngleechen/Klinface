@@ -67,7 +67,7 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
       return;
     }
 
-    // 3. INSERT new order record (not update profiles!)
+    // 3. INSERT new order record
     const { error: orderError } = await supabase
       .from('orders')
       .insert({
@@ -107,7 +107,7 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
           {/* Left column: Delivery form */}
           <div className="bg-white rounded-xl shadow-lg p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Details</h2>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form id="details-form" className="space-y-4">
               <div>
                 <label htmlFor="name" className="block text-sm font-medium text-gray-700">
                   Full Name *
@@ -119,7 +119,7 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
                   required
                   value={formData.name}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-gray-900"
                 />
               </div>
 
@@ -134,7 +134,7 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
                   required
                   value={formData.phone}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-gray-900"
                 />
               </div>
 
@@ -150,7 +150,7 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
                   value={formData.location}
                   onChange={handleChange}
                   placeholder="e.g., Nairobi, Mombasa"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-gray-900 placeholder-gray-400"
                 />
               </div>
 
@@ -165,30 +165,20 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
                   value={formData.busCompany}
                   onChange={handleChange}
                   placeholder="e.g., Guardian, ENA Coach"
-                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                  className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-gray-900 placeholder-gray-400"
                 />
               </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50"
-              >
-                {loading ? 'Processing...' : 'Complete Order'}
-              </button>
-
-              {message && (
-                <div className={`mt-4 p-3 rounded-md ${message.includes('Invalid') ? 'bg-red-50 text-red-800' : 'bg-green-50 text-green-800'}`}>
-                  {message}
-                </div>
-              )}
+              
+              <p className="text-xs text-gray-500 italic mt-4">
+                * Please fill in your details above, then complete the payment steps on the right.
+              </p>
             </form>
           </div>
 
-          {/* Right column: Payment instructions */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          {/* Right column: Payment instructions & Submit */}
+          <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col">
             <h2 className="text-2xl font-bold text-gray-900 mb-6">Payment Instructions</h2>
-            <div className="space-y-4">
+            <div className="space-y-4 flex-grow">
               <p className="text-gray-700">
                 <strong>Price:</strong> KES 1,500 (delivery inclusive)
               </p>
@@ -213,13 +203,46 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
                 Once you have completed the payment, paste your M‑PESA confirmation message below.
               </p>
 
+              {/* Fixed Textarea Visibility */}
               <textarea
-                rows={4}
+                rows={5}
                 value={mpesaMessage}
                 onChange={(e) => setMpesaMessage(e.target.value)}
                 placeholder="Paste your M‑PESA confirmation message here..."
-                className="mt-2 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500"
+                className="mt-2 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-purple-500 focus:border-purple-500 text-gray-900 placeholder-gray-400 bg-white"
               />
+            </div>
+
+            {/* Moved Submit Button to Bottom Right */}
+            <div className="mt-6">
+              <button
+                type="submit"
+                onClick={handleSubmit}
+                disabled={loading}
+                className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-base font-medium text-white bg-purple-600 hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-purple-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {loading ? (
+                  <span className="flex items-center">
+                    <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Processing...
+                  </span>
+                ) : (
+                  'Complete Order'
+                )}
+              </button>
+
+              {message && (
+                <div className={`mt-4 p-3 rounded-md text-sm ${
+                  message.includes('Invalid') || message.includes('failed') 
+                    ? 'bg-red-50 text-red-800 border border-red-200' 
+                    : 'bg-green-50 text-green-800 border border-green-200'
+                }`}>
+                  {message}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
+import SecureVideoPlayer from '@/components/SecureVideoPlayer';
 
 export default async function InstructionsPage() {
   const cookieStore = await cookies();
@@ -27,24 +28,26 @@ export default async function InstructionsPage() {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // ✅ FIX: Correct destructuring syntax for getUser()
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect('/login?redirect=instructions');
+  if (authError || !user) {
+    redirect('/auth?redirect=instructions');
   }
 
-  const { data: profile, error } = await supabase
-    .from('profiles')
-    .select('order_status')
-    .eq('id', user.id)
+  // Check for a PAID order in the 'orders' table
+  const { data: order, error: orderError } = await supabase
+    .from('orders')
+    .select('order_status, id')
+    .eq('user_id', user.id)
+    .eq('order_status', 'paid')
+    .order('order_time', { ascending: false })
+    .limit(1)
     .single();
 
-  if (error || !profile) {
-    console.error('Profile fetch error:', error);
-    redirect('/signup?error=profile_missing');
-  }
-
-  if (profile.order_status !== 'paid') {
+  // If no paid order is found, redirect to payment page
+  if (orderError || !order) {
+    console.warn('No paid order found for user:', user.id, orderError);
     redirect('/order?need_payment=true');
   }
 
@@ -64,14 +67,19 @@ Instructions:
 
 Be sure to take some pictures of the process. Feel free to reach out at any time in case you need further help.`;
 
-  const paidVideoUrl = 'https://www.klinface.com/wp-content/uploads/2025/01/2511-5425.mp4';
+  const paidVideoUrl = '/videos/0001-3379.mp4';
 
   return (
     <div className="min-h-screen bg-gray-100 py-8 px-4">
       <div className="max-w-3xl mx-auto bg-white rounded-xl shadow-lg p-6 md:p-8">
-        <h2 className="text-2xl md:text-3xl font-bold text-[#6a0dad] border-b-2 border-[#6a0dad] pb-2 mb-6">
-          Instructions
-        </h2>
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-2xl md:text-3xl font-bold text-[#6a0dad] border-b-2 border-[#6a0dad] pb-2">
+            Instructions
+          </h2>
+          <span className="bg-green-100 text-green-800 text-xs font-semibold px-2.5 py-0.5 rounded border border-green-400">
+            Order #{order.id?.slice(0, 8)} Verified
+          </span>
+        </div>
 
         <div className="text-gray-700 leading-relaxed whitespace-pre-line mb-8">
           {instructionsText}
@@ -79,22 +87,15 @@ Be sure to take some pictures of the process. Feel free to reach out at any time
 
         <div className="mt-8">
           <h3 className="text-xl font-semibold text-[#6a0dad] mb-4">Video Instructions</h3>
-          <div className="relative aspect-video w-full max-w-2xl mx-auto">
-            <video
-              controls
-              width="100%"
-              height="auto"
-              className="rounded-lg shadow-lg w-full h-full object-cover"
-              onContextMenu={(e) => e.preventDefault()}
-              disablePictureInPicture
-              controlsList="nodownload"
-            >
-              <source src={paidVideoUrl} type="video/mp4" />
-              Your browser does not support the video tag.
-            </video>
-          </div>
-          <p className="text-sm text-gray-500 mt-2 text-center">
-            Right-click and download are disabled.
+          
+          <SecureVideoPlayer src={paidVideoUrl} />
+          
+         
+        </div>
+        
+        <div className="mt-8 pt-6 border-t border-gray-200">
+          <p className="text-sm text-gray-600">
+            Need help? <a href="/order-status" className="text-[#6a0dad] hover:underline font-medium">Check your order status</a> or contact support.
           </p>
         </div>
       </div>
