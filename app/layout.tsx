@@ -18,10 +18,10 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Klinface", // Your app name
-  description: "Your app description here", // Custom description
+  description: "Get your glow back", // Custom description
   openGraph: {
     title: "Klinface",
-    description: "Your app description here",
+    description: "Get your glow back",
     url: "https://klinface.com",
     siteName: "Klinface",
     images: [
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "Klinface",
-    description: "Your app description here",
+    description: "Get yout glow back",
     images: ["/og-image.png"],
   },
 };
