@@ -146,11 +146,11 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
               </div>
               <div style={s.field}>
                 <label style={s.label}>Location *</label>
-                <input type="text" name="location" required value={formData.location} onChange={handleChange} placeholder="e.g., Nairobi" autoComplete="address-level2" style={s.input} />
+                <input type="text" name="location" required value={formData.location} onChange={handleChange} placeholder="e.g., Kisumu/Mombasa/Garissa" autoComplete="address-level2" style={s.input} />
               </div>
               <div style={s.field}>
                 <label style={s.label}>Preferred Bus Company</label>
-                <input type="text" name="busCompany" value={formData.busCompany} onChange={handleChange} placeholder="e.g., Guardian" style={s.input} />
+                <input type="text" name="busCompany" value={formData.busCompany} onChange={handleChange} placeholder="e.g., Guardian/ENA/Tahmeed" style={s.input} />
               </div>
             </div>
           </div>
