@@ -1,200 +1,200 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
-export default function OrderForm({ user, initialData }: any) {
-  const router = useRouter();
-  const supabase = createClient();
+interface OrderFormProps {
+  user: any | null;
+  initialData?: {
+    name: string | null;
+    phone: string | null;
+    location: string | null;
+    bus_company: string | null;
+  } | null;
+}
 
-  const [form, setForm] = useState({
+export default function OrderForm({ user, initialData }: OrderFormProps) {
+  const [formData, setFormData] = useState({
     name: initialData?.name || '',
     phone: initialData?.phone || '',
     location: initialData?.location || '',
-    bus_company: initialData?.bus_company || '',
+    busCompany: initialData?.bus_company || '',
   });
+  const [mpesaMessage, setMpesaMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const needPayment = searchParams.get('need_payment') === 'true';
+  const supabase = createClient();
 
-  const update = (key: string, value: string) =>
-    setForm(s => ({...s, [key]: value }));
+  useEffect(() => {
+    if (!user && !initialData?.phone) {
+      const saved = localStorage.getItem('pasaka_guest');
+      if (saved) {
+        try {
+          setFormData(prev => ({ ...prev, ...JSON.parse(saved) }));
+        } catch {}
+      }
+    }
+  }, [user, initialData]);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const copyToClipboard = async (text: string, field: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedField(field);
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setMessage('');
 
-    try {
-      const cleanPhone = form.phone.replace(/\s+/g, '').replace(/^\+254/, '0').replace(/^254/, '0').trim();
+    const cleanPhone = formData.phone.replace(/\s+/g, '').replace(/^\+254/, '0').replace(/^254/, '0').trim();
 
-      if (!form.name ||!cleanPhone ||!form.location) {
-        throw new Error('Please fill name, phone and location');
-      }
-
-      const payload = {
-        user_id: user?.id || null,
-        name: form.name.trim(),
+    if (user?.id) {
+      await supabase.from('profiles').update({
+        name: formData.name,
         phone: cleanPhone,
-        location: form.location.trim(),
-        bus_company: form.bus_company.trim() || null,
-        order_status: 'confirmed',
-        order_time: new Date().toISOString(),
-        amount: 150,
-        currency: 'KES',
-        mpesa_message: 'MPESA payment received',
-      };
-
-      const { error: insertErr } = await supabase.from('orders').insert(payload);
-      if (insertErr) throw insertErr;
-
-      // Save for guest lookup (matches your OrderStatusPage logic)
-      if (!user) {
-        localStorage.setItem('pasaka_guest', JSON.stringify({ phone: cleanPhone }));
-      }
-
-      router.push(`/order-status?phone=${encodeURIComponent(cleanPhone)}`);
-    } catch (err: any) {
-      setError(err.message || 'Failed to place order');
-    } finally {
-      setLoading(false);
+        location: formData.location,
+      }).eq('id', user.id);
     }
+
+    if (!mpesaMessage.trim()) {
+      setMessage('Please paste your M-PESA confirmation message.');
+      setLoading(false); return;
+    }
+    if (!mpesaMessage.includes('0100444592000') || !mpesaMessage.includes('1,500')) {
+      setMessage('Invalid M-PESA message. Check account number and amount.');
+      setLoading(false); return;
+    }
+
+    if (!user) {
+      localStorage.setItem('pasaka_guest', JSON.stringify({ ...formData, phone: cleanPhone }));
+    }
+
+    const { error } = await supabase.from('orders').insert({
+      user_id: user?.id || null,
+      name: formData.name.trim(),
+      phone: cleanPhone,
+      location: formData.location.trim(),
+      bus_company: formData.busCompany.trim(),
+      order_status: 'paid',
+      mpesa_message: mpesaMessage,
+      order_time: new Date().toISOString(),
+      amount: 1500,
+      currency: 'KES',
+    });
+
+    if (error) {
+      setMessage('Order submission failed. Please contact support.');
+      setLoading(false); return;
+    }
+
+    router.push('/order-status?phone=' + encodeURIComponent(cleanPhone));
   };
 
   const s = {
-    page: {
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #faf5ff 0%, #ffffff 50%, #eef2ff 100%)',
-      padding: '48px 16px',
-      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
-    },
-    wrap: { maxWidth: '640px', margin: '0 auto' },
-    card: {
-      background: '#ffffff',
-      borderRadius: '16px',
-      boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
-      overflow: 'hidden',
-    },
-    header: {
-      background: 'linear-gradient(90deg, #7c3aed 0%, #4f46e5 100%)',
-      padding: '28px 24px',
-      color: '#fff',
-    },
-    title: { margin: 0, fontSize: '24px', fontWeight: 700 },
-    subtitle: { margin: '6px 0 0', opacity: 0.9, fontSize: '14px' },
-    body: { padding: '24px' },
-    grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' },
+    page: { minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '32px 16px', fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif' },
+    container: { maxWidth: '1024px', margin: '0 auto' },
+    alert: { marginBottom: '24px', padding: '16px', backgroundColor: '#fefce8', borderLeft: '4px solid #eab308', color: '#854d0e', borderRadius: '6px', fontSize: '14px' },
+    grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' },
+    card: { backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '24px' },
+    cardFlex: { backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '24px', display: 'flex', flexDirection: 'column' as const },
+    h2: { fontSize: '22px', fontWeight: 700, color: '#111827', margin: '0 0 24px 0' },
+    label: { display: 'block', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '6px' },
+    input: { width: '100%', padding: '10px 12px', backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '15px', color: '#111827', boxSizing: 'border-box' as const, outline: 'none' },
     field: { marginBottom: '16px' },
-    label: { display: 'block', fontSize: '13px', color: '#4b5563', marginBottom: '6px', fontWeight: 500 },
-    input: {
-      width: '100%',
-      padding: '12px 14px',
-      border: '1px solid #e5e7eb',
-      borderRadius: '10px',
-      fontSize: '15px',
-      outline: 'none',
-      boxSizing: 'border-box' as const,
-      background: '#fff',
-    },
-    inputFocus: { borderColor: '#7c3aed', boxShadow: '0 0 0 3px rgba(124,58,237,0.15)' },
-    full: { gridColumn: '1 / -1' },
-    error: {
-      background: '#fef2f2',
-      color: '#b91c1c',
-      border: '1px solid #fecaca',
-      padding: '10px 12px',
-      borderRadius: '10px',
-      fontSize: '14px',
-      marginBottom: '16px',
-    },
-    button: {
-      width: '100%',
-      padding: '14px',
-      background: '#7c3aed',
-      color: '#fff',
-      border: 'none',
-      borderRadius: '10px',
-      fontSize: '16px',
-      fontWeight: 600,
-      cursor: 'pointer',
-      marginTop: '8px',
-    },
-    buttonDisabled: { opacity: 0.7, cursor: 'not-allowed' },
-    note: { fontSize: '12px', color: '#6b7280', textAlign: 'center' as const, marginTop: '14px' },
+    price: { color: '#111827', fontSize: '15px', marginBottom: '16px' },
+    payRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f9fafb', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '12px' },
+    payLabel: { fontSize: '11px', color: '#6b7280', textTransform: 'uppercase' as const, letterSpacing: '0.5px' },
+    payValue: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '18px', fontWeight: 600, color: '#111827', margin: '2px 0 0 0' },
+    copyBtn: { padding: '6px 12px', fontSize: '13px', backgroundColor: '#ffffff', border: '1px solid #ddd6fe', color: '#7c3aed', borderRadius: '6px', cursor: 'pointer' },
+    textarea: { width: '100%', padding: '10px 12px', backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', color: '#111827', boxSizing: 'border-box' as const, minHeight: '110px', resize: 'vertical' as const },
+    submit: { marginTop: '24px', width: '100%', padding: '12px', backgroundColor: '#7c3aed', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 500, cursor: 'pointer' },
+    submitDisabled: { opacity: 0.5, cursor: 'not-allowed' },
+    error: { marginTop: '12px', padding: '12px', backgroundColor: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '14px' },
   };
 
   return (
     <div style={s.page}>
-      <div style={s.wrap}>
-        <div style={s.card}>
-          <div style={s.header}>
-            <h1 style={s.title}>Place Your Order</h1>
-            <p style={s.subtitle}>
-              {user? `Welcome back, ${user.email}` : 'Checkout as guest'}
-            </p>
+      <div style={s.container}>
+        {needPayment && (
+          <div style={s.alert}>
+            Complete payment to access instructions.
           </div>
+        )}
 
-          <form onSubmit={handleSubmit} style={s.body}>
-            {error && <div style={s.error}>{error}</div>}
-
-            <div style={s.grid}>
+        <div style={s.grid}>
+          {/* Left */}
+          <div style={s.card}>
+            <h2 style={s.h2}>Your Details</h2>
+            <div>
               <div style={s.field}>
-                <label style={s.label}>Full Name</label>
-                <input
-                  style={s.input}
-                  value={form.name}
-                  onChange={e => update('name', e.target.value)}
-                  placeholder="Jane Doe"
-                  required
-                />
+                <label style={s.label}>Full Name *</label>
+                <input type="text" name="name" required value={formData.name} onChange={handleChange} autoComplete="name" style={s.input} />
               </div>
-
               <div style={s.field}>
-                <label style={s.label}>Phone (M-PESA)</label>
-                <input
-                  style={s.input}
-                  value={form.phone}
-                  onChange={e => update('phone', e.target.value)}
-                  placeholder="0712 345 678"
-                  required
-                  inputMode="tel"
-                />
+                <label style={s.label}>Phone Number *</label>
+                <input type="tel" name="phone" required value={formData.phone} onChange={handleChange} autoComplete="tel" style={s.input} />
               </div>
-
-              <div style={{...s.field,...s.full}}>
-                <label style={s.label}>Delivery Location</label>
-                <input
-                  style={s.input}
-                  value={form.location}
-                  onChange={e => update('location', e.target.value)}
-                  placeholder="Estate, street, house no."
-                  required
-                />
+              <div style={s.field}>
+                <label style={s.label}>Location *</label>
+                <input type="text" name="location" required value={formData.location} onChange={handleChange} placeholder="e.g., Nairobi" autoComplete="address-level2" style={s.input} />
               </div>
-
-              <div style={{...s.field,...s.full}}>
-                <label style={s.label}>Bus Company (optional)</label>
-                <input
-                  style={s.input}
-                  value={form.bus_company}
-                  onChange={e => update('bus_company', e.target.value)}
-                  placeholder="e.g., Easy Coach, Guardian"
-                />
+              <div style={s.field}>
+                <label style={s.label}>Preferred Bus Company</label>
+                <input type="text" name="busCompany" value={formData.busCompany} onChange={handleChange} placeholder="e.g., Guardian" style={s.input} />
               </div>
             </div>
+          </div>
 
-            <button
-              type="submit"
-              disabled={loading}
-              style={{...s.button,...(loading? s.buttonDisabled : {}) }}
-            >
-              {loading? 'Placing order...' : 'Pay KES 150 with M-PESA'}
+          {/* Right */}
+          <div style={s.cardFlex}>
+            <h2 style={s.h2}>Payment</h2>
+            <div style={{ flexGrow: 1 }}>
+              <p style={s.price}><strong>Price:</strong> KES 1,500</p>
+
+              <div style={s.payRow}>
+                <div>
+                  <span style={s.payLabel}>Paybill</span>
+                  <p style={s.payValue}>329329</p>
+                </div>
+                <button type="button" onClick={() => copyToClipboard('329329', 'paybill')} style={s.copyBtn}>
+                  {copiedField === 'paybill' ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+
+              <div style={s.payRow}>
+                <div>
+                  <span style={s.payLabel}>Account Number</span>
+                  <p style={s.payValue}>0100444592000</p>
+                </div>
+                <button type="button" onClick={() => copyToClipboard('0100444592000', 'account')} style={s.copyBtn}>
+                  {copiedField === 'account' ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
+
+              <textarea
+                rows={5}
+                value={mpesaMessage}
+                onChange={(e) => setMpesaMessage(e.target.value)}
+                placeholder="Paste M-PESA message here..."
+                style={s.textarea}
+              />
+            </div>
+
+            <button onClick={handleSubmit} disabled={loading} style={{ ...s.submit, ...(loading ? s.submitDisabled : {}) }}>
+              {loading ? 'Processing...' : 'Complete Order'}
             </button>
-
-            <p style={s.note}>
-              You'll be redirected to order status after placing the order.
-            </p>
-          </form>
+            {message && <div style={s.error}>{message}</div>}
+          </div>
         </div>
       </div>
     </div>
