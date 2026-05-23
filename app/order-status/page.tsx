@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -18,7 +18,8 @@ interface OrderDetails {
   currency: string | null;
 }
 
-export default function OrderStatusPage() {
+// This component does the actual work and uses useSearchParams
+function OrderStatusContent() {
   const { user, loading: authLoading } = useAuth();
   const [order, setOrder] = useState<OrderDetails | null>(null);
   const [loading, setLoading] = useState(true);
@@ -37,18 +38,30 @@ export default function OrderStatusPage() {
       if (!phoneToSearch &&!user?.id) {
         const saved = localStorage.getItem('pasaka_guest');
         if (saved) {
-          try { phoneToSearch = JSON.parse(saved).phone; } catch {}
+          try {
+            phoneToSearch = JSON.parse(saved).phone;
+          } catch {}
         }
       }
 
+      // Don't query if we have no identifier - prevents leaking other users' orders
+      if (!user?.id &&!phoneToSearch) {
+        setLoading(false);
+        return;
+      }
+
       try {
-        let query = supabase.from('orders')
+        let query = supabase
+         .from('orders')
          .select('id, name, phone, location, bus_company, order_status, order_time, mpesa_message, amount, currency')
          .order('order_time', { ascending: false })
          .limit(1);
 
-        if (user?.id) query = query.eq('user_id', user.id);
-        else if (phoneToSearch) query = query.eq('phone', phoneToSearch);
+        if (user?.id) {
+          query = query.eq('user_id', user.id);
+        } else if (phoneToSearch) {
+          query = query.eq('phone', phoneToSearch);
+        }
 
         const { data } = await query.maybeSingle();
         setOrder(data);
@@ -59,7 +72,7 @@ export default function OrderStatusPage() {
       }
     };
     fetchOrder();
-  }, [user, authLoading, searchParams]);
+  }, [user, authLoading, searchParams, supabase]);
 
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50"><p className="text-gray-900">Loading your order...</p></div>;
@@ -116,5 +129,18 @@ export default function OrderStatusPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// The page wrapper - Suspense prevents the prerender error
+export default function OrderStatusPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-900">Loading your order...</p>
+      </div>
+    }>
+      <OrderStatusContent />
+    </Suspense>
   );
 }
