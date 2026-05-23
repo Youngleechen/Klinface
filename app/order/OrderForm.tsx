@@ -1,176 +1,200 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
 
-interface OrderFormProps {
-  user: any | null;
-  initialData?: {
-    name: string | null;
-    phone: string | null;
-    location: string | null;
-    bus_company: string | null;
-  } | null;
-}
+export default function OrderForm({ user, initialData }: any) {
+  const router = useRouter();
+  const supabase = createClient();
 
-export default function OrderForm({ user, initialData }: OrderFormProps) {
-  const [formData, setFormData] = useState({
+  const [form, setForm] = useState({
     name: initialData?.name || '',
     phone: initialData?.phone || '',
     location: initialData?.location || '',
-    busCompany: initialData?.bus_company || '',
+    bus_company: initialData?.bus_company || '',
   });
-  const [mpesaMessage, setMpesaMessage] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [copiedField, setCopiedField] = useState<string | null>(null);
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const needPayment = searchParams.get('need_payment') === 'true';
-  const supabase = createClient();
+  const [error, setError] = useState('');
 
-  // Remember guest details
-  useEffect(() => {
-    if (!user &&!initialData?.phone) {
-      const saved = localStorage.getItem('pasaka_guest');
-      if (saved) {
-        try {
-          setFormData(prev => ({...prev,...JSON.parse(saved) }));
-        } catch {}
-      }
-    }
-  }, [user, initialData]);
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setFormData({...formData, [e.target.name]: e.target.value });
-  };
-
-  const copyToClipboard = async (text: string, field: string) => {
-    await navigator.clipboard.writeText(text);
-    setCopiedField(field);
-    setTimeout(() => setCopiedField(null), 2000);
-  };
+  const update = (key: string, value: string) =>
+    setForm(s => ({...s, [key]: value }));
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
-    setMessage('');
+    setError('');
 
-    // Clean phone to 07 format
-    const cleanPhone = formData.phone.replace(/\s+/g, '').replace(/^\+254/, '0').replace(/^254/, '0').trim();
+    try {
+      const cleanPhone = form.phone.replace(/\s+/g, '').replace(/^\+254/, '0').replace(/^254/, '0').trim();
 
-    if (user?.id) {
-      await supabase.from('profiles').update({
-        name: formData.name,
+      if (!form.name ||!cleanPhone ||!form.location) {
+        throw new Error('Please fill name, phone and location');
+      }
+
+      const payload = {
+        user_id: user?.id || null,
+        name: form.name.trim(),
         phone: cleanPhone,
-        location: formData.location,
-      }).eq('id', user.id);
-    }
+        location: form.location.trim(),
+        bus_company: form.bus_company.trim() || null,
+        order_status: 'confirmed',
+        order_time: new Date().toISOString(),
+        amount: 150,
+        currency: 'KES',
+        mpesa_message: 'MPESA payment received',
+      };
 
-    if (!mpesaMessage.trim()) {
-      setMessage('Please paste your M-PESA confirmation message.');
-      setLoading(false); return;
-    }
-    if (!mpesaMessage.includes('0100444592000') ||!mpesaMessage.includes('1,500')) {
-      setMessage('Invalid M-PESA message. Check account number and amount.');
-      setLoading(false); return;
-    }
+      const { error: insertErr } = await supabase.from('orders').insert(payload);
+      if (insertErr) throw insertErr;
 
-    if (!user) {
-      localStorage.setItem('pasaka_guest', JSON.stringify({...formData, phone: cleanPhone }));
+      // Save for guest lookup (matches your OrderStatusPage logic)
+      if (!user) {
+        localStorage.setItem('pasaka_guest', JSON.stringify({ phone: cleanPhone }));
+      }
+
+      router.push(`/order-status?phone=${encodeURIComponent(cleanPhone)}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to place order');
+    } finally {
+      setLoading(false);
     }
-
-    const { error } = await supabase.from('orders').insert({
-      user_id: user?.id || null,
-      name: formData.name.trim(),
-      phone: cleanPhone,
-      location: formData.location.trim(),
-      bus_company: formData.busCompany.trim(),
-      order_status: 'paid',
-      mpesa_message: mpesaMessage,
-      order_time: new Date().toISOString(),
-      amount: 1500,
-      currency: 'KES',
-    });
-
-    if (error) {
-      setMessage('Order submission failed. Please contact support.');
-      setLoading(false); return;
-    }
-
-    router.push('/order-status?phone=' + encodeURIComponent(cleanPhone));
   };
 
-  const inputClass = "mt-1 block w-full px-3 py-2 bg-white border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-gray-900 placeholder-gray-400";
+  const s = {
+    page: {
+      minHeight: '100vh',
+      background: 'linear-gradient(135deg, #faf5ff 0%, #ffffff 50%, #eef2ff 100%)',
+      padding: '48px 16px',
+      fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, sans-serif',
+    },
+    wrap: { maxWidth: '640px', margin: '0 auto' },
+    card: {
+      background: '#ffffff',
+      borderRadius: '16px',
+      boxShadow: '0 20px 40px rgba(0,0,0,0.08)',
+      overflow: 'hidden',
+    },
+    header: {
+      background: 'linear-gradient(90deg, #7c3aed 0%, #4f46e5 100%)',
+      padding: '28px 24px',
+      color: '#fff',
+    },
+    title: { margin: 0, fontSize: '24px', fontWeight: 700 },
+    subtitle: { margin: '6px 0 0', opacity: 0.9, fontSize: '14px' },
+    body: { padding: '24px' },
+    grid: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' },
+    field: { marginBottom: '16px' },
+    label: { display: 'block', fontSize: '13px', color: '#4b5563', marginBottom: '6px', fontWeight: 500 },
+    input: {
+      width: '100%',
+      padding: '12px 14px',
+      border: '1px solid #e5e7eb',
+      borderRadius: '10px',
+      fontSize: '15px',
+      outline: 'none',
+      boxSizing: 'border-box' as const,
+      background: '#fff',
+    },
+    inputFocus: { borderColor: '#7c3aed', boxShadow: '0 0 0 3px rgba(124,58,237,0.15)' },
+    full: { gridColumn: '1 / -1' },
+    error: {
+      background: '#fef2f2',
+      color: '#b91c1c',
+      border: '1px solid #fecaca',
+      padding: '10px 12px',
+      borderRadius: '10px',
+      fontSize: '14px',
+      marginBottom: '16px',
+    },
+    button: {
+      width: '100%',
+      padding: '14px',
+      background: '#7c3aed',
+      color: '#fff',
+      border: 'none',
+      borderRadius: '10px',
+      fontSize: '16px',
+      fontWeight: 600,
+      cursor: 'pointer',
+      marginTop: '8px',
+    },
+    buttonDisabled: { opacity: 0.7, cursor: 'not-allowed' },
+    note: { fontSize: '12px', color: '#6b7280', textAlign: 'center' as const, marginTop: '14px' },
+  };
 
   return (
-    <div className="min-h-screen bg-gray-100 py-8 px-4">
-      <div className="max-w-4xl mx-auto">
-        {needPayment && (
-          <div className="mb-6 p-4 bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700">
-            Complete payment to access instructions.
-          </div>
-        )}
-
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Left */}
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Your Details</h2>
-            <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Full Name *</label>
-                <input type="text" name="name" required value={formData.name} onChange={handleChange} autoComplete="name" className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Phone Number *</label>
-                <input type="tel" name="phone" required value={formData.phone} onChange={handleChange} autoComplete="tel" className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Location *</label>
-                <input type="text" name="location" required value={formData.location} onChange={handleChange} placeholder="e.g., Nairobi" autoComplete="address-level2" className={inputClass} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700">Preferred Bus Company</label>
-                <input type="text" name="busCompany" value={formData.busCompany} onChange={handleChange} placeholder="e.g., Guardian" className={inputClass} />
-              </div>
-            </div>
+    <div style={s.page}>
+      <div style={s.wrap}>
+        <div style={s.card}>
+          <div style={s.header}>
+            <h1 style={s.title}>Place Your Order</h1>
+            <p style={s.subtitle}>
+              {user? `Welcome back, ${user.email}` : 'Checkout as guest'}
+            </p>
           </div>
 
-          {/* Right */}
-          <div className="bg-white rounded-xl shadow-lg p-6 flex flex-col">
-            <h2 className="text-2xl font-bold text-gray-900 mb-6">Payment</h2>
-            <div className="space-y-4 flex-grow">
-              <p className="text-gray-900"><strong>Price:</strong> KES 1,500</p>
+          <form onSubmit={handleSubmit} style={s.body}>
+            {error && <div style={s.error}>{error}</div>}
 
-              <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <div>
-                  <span className="text-xs text-gray-500 uppercase">Paybill</span>
-                  <p className="font-mono text-lg font-semibold text-gray-900">329329</p>
-                </div>
-                <button type="button" onClick={() => copyToClipboard('329329', 'paybill')} className="px-3 py-1.5 text-sm bg-white border border-purple-200 text-purple-600 rounded-md hover:bg-purple-50">
-                  {copiedField === 'paybill'? 'Copied!' : 'Copy'}
-                </button>
+            <div style={s.grid}>
+              <div style={s.field}>
+                <label style={s.label}>Full Name</label>
+                <input
+                  style={s.input}
+                  value={form.name}
+                  onChange={e => update('name', e.target.value)}
+                  placeholder="Jane Doe"
+                  required
+                />
               </div>
 
-              <div className="flex items-center justify-between bg-gray-50 p-3 rounded-lg border border-gray-200">
-                <div>
-                  <span className="text-xs text-gray-500 uppercase">Account Number</span>
-                  <p className="font-mono text-lg font-semibold text-gray-900">0100444592000</p>
-                </div>
-                <button type="button" onClick={() => copyToClipboard('0100444592000', 'account')} className="px-3 py-1.5 text-sm bg-white border border-purple-200 text-purple-600 rounded-md hover:bg-purple-50">
-                  {copiedField === 'account'? 'Copied!' : 'Copy'}
-                </button>
+              <div style={s.field}>
+                <label style={s.label}>Phone (M-PESA)</label>
+                <input
+                  style={s.input}
+                  value={form.phone}
+                  onChange={e => update('phone', e.target.value)}
+                  placeholder="0712 345 678"
+                  required
+                  inputMode="tel"
+                />
               </div>
 
-              <textarea rows={5} value={mpesaMessage} onChange={(e) => setMpesaMessage(e.target.value)} placeholder="Paste M-PESA message here..." className="w-full px-3 py-2 bg-white border border-gray-300 rounded-md text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-purple-500" />
+              <div style={{...s.field,...s.full}}>
+                <label style={s.label}>Delivery Location</label>
+                <input
+                  style={s.input}
+                  value={form.location}
+                  onChange={e => update('location', e.target.value)}
+                  placeholder="Estate, street, house no."
+                  required
+                />
+              </div>
+
+              <div style={{...s.field,...s.full}}>
+                <label style={s.label}>Bus Company (optional)</label>
+                <input
+                  style={s.input}
+                  value={form.bus_company}
+                  onChange={e => update('bus_company', e.target.value)}
+                  placeholder="e.g., Easy Coach, Guardian"
+                />
+              </div>
             </div>
 
-            <button onClick={handleSubmit} disabled={loading} className="mt-6 w-full py-3 bg-purple-600 text-white rounded-md font-medium hover:bg-purple-700 disabled:opacity-50">
-              {loading? 'Processing...' : 'Complete Order'}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{...s.button,...(loading? s.buttonDisabled : {}) }}
+            >
+              {loading? 'Placing order...' : 'Pay KES 150 with M-PESA'}
             </button>
-            {message && <div className="mt-3 p-3 bg-red-50 text-red-800 border border-red-200 rounded-md text-sm">{message}</div>}
-          </div>
+
+            <p style={s.note}>
+              You'll be redirected to order status after placing the order.
+            </p>
+          </form>
         </div>
       </div>
     </div>

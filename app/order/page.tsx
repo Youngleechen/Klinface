@@ -9,10 +9,10 @@ export default async function OrderPage() {
   let profile = null;
   if (user) {
     const { data } = await supabase
-      .from('profiles')
-      .select('name, phone, location, bus_company')
-      .eq('id', user.id)
-      .maybeSingle();
+     .from('profiles')
+     .select('name, phone, location, bus_company')
+     .eq('id', user.id)
+     .maybeSingle();
     profile = data;
   }
 
