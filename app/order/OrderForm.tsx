@@ -107,17 +107,21 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
     grid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px' },
     card: { backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '24px' },
     cardFlex: { backgroundColor: '#ffffff', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.08)', padding: '24px', display: 'flex', flexDirection: 'column' as const },
-    h2: { fontSize: '22px', fontWeight: 700, color: '#111827', margin: '0 0 24px 0' },
+    h2: { fontSize: '22px', fontWeight: 700, color: '#111827', margin: '0 0 16px 0' },
     label: { display: 'block', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '6px' },
     input: { width: '100%', padding: '10px 12px', backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '15px', color: '#111827', boxSizing: 'border-box' as const, outline: 'none' },
     field: { marginBottom: '16px' },
-    price: { color: '#111827', fontSize: '15px', marginBottom: '16px' },
+    instructions: { backgroundColor: '#f5f3ff', border: '1px solid #e9d5ff', borderRadius: '8px', padding: '14px', marginBottom: '16px' },
+    instrTitle: { margin: '0 0 8px 0', fontWeight: 600, color: '#5b21b6', fontSize: '14px' },
+    instrList: { margin: 0, paddingLeft: '18px', color: '#4c1d95', fontSize: '13.5px', lineHeight: 1.6 },
+    price: { color: '#111827', fontSize: '15px', marginBottom: '12px', fontWeight: 600 },
     payRow: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#f9fafb', padding: '12px', borderRadius: '8px', border: '1px solid #e5e7eb', marginBottom: '12px' },
     payLabel: { fontSize: '11px', color: '#6b7280', textTransform: 'uppercase' as const, letterSpacing: '0.5px' },
     payValue: { fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace', fontSize: '18px', fontWeight: 600, color: '#111827', margin: '2px 0 0 0' },
     copyBtn: { padding: '6px 12px', fontSize: '13px', backgroundColor: '#ffffff', border: '1px solid #ddd6fe', color: '#7c3aed', borderRadius: '6px', cursor: 'pointer' },
     textarea: { width: '100%', padding: '10px 12px', backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', color: '#111827', boxSizing: 'border-box' as const, minHeight: '110px', resize: 'vertical' as const },
-    submit: { marginTop: '24px', width: '100%', padding: '12px', backgroundColor: '#7c3aed', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 500, cursor: 'pointer' },
+    textareaLabel: { fontSize: '13px', color: '#374151', marginBottom: '6px', marginTop: '8px', fontWeight: 500 },
+    submit: { marginTop: '20px', width: '100%', padding: '12px', backgroundColor: '#7c3aed', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 500, cursor: 'pointer' },
     submitDisabled: { opacity: 0.5, cursor: 'not-allowed' },
     error: { marginTop: '12px', padding: '12px', backgroundColor: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '14px' },
   };
@@ -158,8 +162,20 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
           {/* Right */}
           <div style={s.cardFlex}>
             <h2 style={s.h2}>Payment</h2>
+            
+            <div style={s.instructions}>
+              <p style={s.instrTitle}>Make payment first, then paste confirmation below:</p>
+              <ol style={s.instrList}>
+                <li>Go to M-PESA → Lipa na M-PESA → Pay Bill</li>
+                <li>Enter Paybill: <strong>329329</strong></li>
+                <li>Account Number: <strong>0100444592000</strong></li>
+                <li>Amount: <strong>KES 1,500</strong></li>
+                <li>Complete payment and wait for SMS</li>
+              </ol>
+            </div>
+
             <div style={{ flexGrow: 1 }}>
-              <p style={s.price}><strong>Price:</strong> KES 1,500</p>
+              <p style={s.price}>Total to Pay: KES 1,500</p>
 
               <div style={s.payRow}>
                 <div>
@@ -181,17 +197,18 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
                 </button>
               </div>
 
+              <label style={s.textareaLabel}>Paste your FULL M-PESA confirmation message here *</label>
               <textarea
                 rows={5}
                 value={mpesaMessage}
                 onChange={(e) => setMpesaMessage(e.target.value)}
-                placeholder="Paste M-PESA message here..."
+                placeholder="e.g., QJD8X... Confirmed. Ksh1,500.00 sent to P... for account 0100444592000 on 23/5/26..."
                 style={s.textarea}
               />
             </div>
 
             <button onClick={handleSubmit} disabled={loading} style={{ ...s.submit, ...(loading ? s.submitDisabled : {}) }}>
-              {loading ? 'Processing...' : 'Complete Order'}
+              {loading ? 'Verifying...' : 'Complete Order'}
             </button>
             {message && <div style={s.error}>{message}</div>}
           </div>
