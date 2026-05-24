@@ -202,9 +202,9 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
                 rows={5}
                 value={mpesaMessage}
                 onChange={(e) => setMpesaMessage(e.target.value)}
-                placeholder="e.g., QJD8X... Confirmed. Ksh1,500.00 sent to P... for account 0100444592000 on 23/5/26..."
+                placeholder="e.g., QJD8X... Confirmed. Ksh1,500.00 sent"
                 style={s.textarea}
-              />
+              />s
             </div>
 
             <button onClick={handleSubmit} disabled={loading} style={{ ...s.submit, ...(loading ? s.submitDisabled : {}) }}>
