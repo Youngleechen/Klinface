@@ -25,6 +25,8 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [clipboardPreview, setClipboardPreview] = useState<string>('');
+  const [clipboardError, setClipboardError] = useState<string>('');
   const router = useRouter();
   const searchParams = useSearchParams();
   const needPayment = searchParams.get('need_payment') === 'true';
@@ -49,6 +51,25 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
     await navigator.clipboard.writeText(text);
     setCopiedField(field);
     setTimeout(() => setCopiedField(null), 2000);
+  };
+
+  // Read clipboard and update textarea + preview
+  const pasteFromClipboard = async () => {
+    try {
+      setClipboardError('');
+      const text = await navigator.clipboard.readText();
+      if (text.trim()) {
+        setMpesaMessage(text);
+        setClipboardPreview(text.slice(0, 100) + (text.length > 100 ? '…' : ''));
+      } else {
+        setClipboardError('Clipboard is empty');
+        setClipboardPreview('');
+      }
+    } catch (err) {
+      console.error('Failed to read clipboard:', err);
+      setClipboardError('Unable to read clipboard. Please allow permission or paste manually.');
+      setClipboardPreview('');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -121,6 +142,11 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
     copyBtn: { padding: '6px 12px', fontSize: '13px', backgroundColor: '#ffffff', border: '1px solid #ddd6fe', color: '#7c3aed', borderRadius: '6px', cursor: 'pointer' },
     textarea: { width: '100%', padding: '10px 12px', backgroundColor: '#ffffff', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '14px', color: '#111827', boxSizing: 'border-box' as const, minHeight: '110px', resize: 'vertical' as const },
     textareaLabel: { fontSize: '13px', color: '#374151', marginBottom: '6px', marginTop: '8px', fontWeight: 500 },
+    // New styles for the paste section
+    pasteRow: { display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' },
+    previewBox: { backgroundColor: '#f9fafb', border: '1px solid #e5e7eb', borderRadius: '6px', padding: '8px 12px', fontSize: '12px', color: '#4b5563', fontFamily: 'monospace', wordBreak: 'break-all' as const, marginBottom: '8px' },
+    previewLabel: { fontSize: '11px', color: '#6b7280', marginBottom: '4px' },
+    errorSmall: { fontSize: '12px', color: '#dc2626', marginTop: '4px' },
     submit: { marginTop: '20px', width: '100%', padding: '12px', backgroundColor: '#7c3aed', color: '#ffffff', border: 'none', borderRadius: '6px', fontSize: '16px', fontWeight: 500, cursor: 'pointer' },
     submitDisabled: { opacity: 0.5, cursor: 'not-allowed' },
     error: { marginTop: '12px', padding: '12px', backgroundColor: '#fef2f2', color: '#991b1b', border: '1px solid #fecaca', borderRadius: '6px', fontSize: '14px' },
@@ -197,14 +223,35 @@ export default function OrderForm({ user, initialData }: OrderFormProps) {
                 </button>
               </div>
 
-              <label style={s.textareaLabel}>Paste your FULL M-PESA confirmation message here *</label>
-              <textarea
-                rows={5}
-                value={mpesaMessage}
-                onChange={(e) => setMpesaMessage(e.target.value)}
-                placeholder="e.g., QJD8X... Confirmed. Ksh1,500.00 sent"
-                style={s.textarea}
-              />s
+              {/* New: Paste from clipboard section */}
+              <div>
+                <div style={s.pasteRow}>
+                  <label style={s.textareaLabel}>Paste your FULL M-PESA confirmation message here *</label>
+                  <button type="button" onClick={pasteFromClipboard} style={s.copyBtn}>
+                    📋 Paste from clipboard
+                  </button>
+                </div>
+
+                {/* Clipboard preview (optional) */}
+                {(clipboardPreview || clipboardError) && (
+                  <div style={s.previewBox}>
+                    <div style={s.previewLabel}>
+                      {clipboardError ? '⚠️ Error' : '📋 Current clipboard preview:'}
+                    </div>
+                    <div>
+                      {clipboardError || clipboardPreview || '(empty)'}
+                    </div>
+                  </div>
+                )}
+
+                <textarea
+                  rows={5}
+                  value={mpesaMessage}
+                  onChange={(e) => setMpesaMessage(e.target.value)}
+                  placeholder="e.g., QJD8X... Confirmed. Ksh1,500.00 sent to 329329..."
+                  style={s.textarea}
+                />
+              </div>
             </div>
 
             <button onClick={handleSubmit} disabled={loading} style={{ ...s.submit, ...(loading ? s.submitDisabled : {}) }}>
